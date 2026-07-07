@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>世界杯合成 - FIFA 2026™</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #0b1e0b;
+            background-image:
+                repeating-linear-gradient(0deg, transparent, transparent 38px, rgba(255,255,255,0.015) 38px, rgba(255,255,255,0.015) 40px),
+                linear-gradient(180deg, #0d260d 0%, #143d14 40%, #0d260d 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 800;
+        }
+
+        .header h1 .gold {
+            background: linear-gradient(180deg, #ffd700 0%, #b8860b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header .subtitle {
+            font-size: 11px;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .score-board {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .score-box {
+            background: linear-gradient(135deg, rgba(30,60,30,0.9), rgba(20,40,20,0.9));
+            border: 1px solid rgba(255,215,0,0.3);
+            border-radius: 10px;
+            padding: 6px 18px;
+            text-align: center;
+        }
+
+        .score-box .label {
+            font-size: 9px;
+            color: rgba(255,215,0,0.7);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .score-box .value {
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .game-area {
+            position: relative;
+            width: 360px;
+            height: 520px;
+        }
+
+        .drop-zone {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        .drop-indicator {
+            position: absolute;
+            width: 2px;
+            height: 60px;
+            background: rgba(255,215,0,0.3);
+            top: 0;
+            pointer-events: none;
+            transition: left 0.05s linear;
+        }
+
+        .next-ball {
+            position: absolute;
+            top: 8px;
+            right: 10px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,215,0,0.3);
+            border-radius: 8px;
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 6;
+        }
+
+        .next-ball .next-label {
+            font-size: 9px;
+            color: rgba(255,215,0,0.7);
+            text-transform: uppercase;
+        }
+
+        .next-ball img {
+            width: 24px;
+            height: 16px;
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .danger-line {
+            position: absolute;
+            top: 80px;
+            left: 10px;
+            right: 10px;
+            height: 2px;
+            background: repeating-linear-gradient(90deg, rgba(255,50,50,0.6) 0px, rgba(255,50,50,0.6) 8px, transparent 8px, transparent 14px);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .game-over-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            z-index: 20;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(4px);
+        }
+
+        .game-over-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .game-over-overlay .end-icon { font-size: 50px; margin-bottom: 10px; }
+        .game-over-overlay h2 { font-size: 22px; color: #ffd700; font-weight: 800; margin-bottom: 6px; }
+        .game-over-overlay p { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 16px; }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:active { transform: scale(0.95); }
+
+        .btn-restart {
+            background: linear-gradient(135deg, #c0392b, #96281b);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 15px rgba(192,57,43,0.3);
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #f7971e, #ffd200);
+            color: #1a1a1a;
+            box-shadow: 0 4px 15px rgba(255,210,0,0.3);
+        }
+
+        .controls {
+            margin-top: 8px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .level-guide {
+            margin-top: 10px;
+            width: 360px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 10px 12px;
+            border: 1px solid rgba(255,215,0,0.15);
+        }
+
+        .level-guide h3 {
+            font-size: 11px;
+            color: rgba(255,215,0,0.8);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .level-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .level-item {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9px;
+            color: rgba(255,255,255,0.7);
+            background: rgba(255,255,255,0.04);
+            padding: 3px 6px;
+            border-radius: 4px;
+        }
+
+        .level-item img {
+            width: 16px;
+            height: 11px;
+            border-radius: 1px;
+        }
+
+        .level-arrow {
+            color: rgba(255,215,0,0.5);
+            font-size: 10px;
+            padding: 0 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚽ <span class="gold">WORLD CUP MERGE</span></h1>
+        <div class="subtitle">FIFA 2026 · Drop & Merge</div>
+    </div>
+
+    <div class="score-board">
+        <div class="score-box">
+            <div class="label">Score</div>
+            <div class="value" id="score">0</div>
+        </div>
+        <div class="score-box">
+            <div class="label">Best</div>
+            <div class="value" id="best">0</div>
+        </div>
+    </div>
+
+    <div class="game-area">
+        <canvas id="gameCanvas"></canvas>
+        <div class="danger-line"></div>
+        <div class="drop-indicator" id="dropIndicator"></div>
+        <div class="next-ball" id="nextBall">
+            <span class="next-label">Next</span>
+            <img id="nextFlag" src="" alt="">
+        </div>
+        <div class="game-over-overlay" id="gameOver">
+            <div class="end-icon" id="endIcon">⚽</div>
+            <h2 id="endTitle">FULL TIME!</h2>
+            <p id="endMsg">Score: <strong id="endScore">0</strong></p>
+            <button class="btn btn-gold" onclick="restartGame()">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-restart" onclick="restartGame()">RESTART</button>
+    </div>
+
+    <div class="level-guide">
+        <h3>🏆 合成路线 · MERGE PATH</h3>
+        <div class="level-list" id="levelList"></div>
+    </div>
+
+    <script>
+        const TEAMS = [
+            { name: '新西兰', code: 'nz', radius: 18 },
+            { name: '库拉索', code: 'cw', radius: 22 },
+            { name: '海地', code: 'ht', radius: 26 },
+            { name: '沙特', code: 'sa', radius: 30 },
+            { name: '韩国', code: 'kr', radius: 34 },
+            { name: '日本', code: 'jp', radius: 38 },
+            { name: '荷兰', code: 'nl', radius: 42 },
+            { name: '葡萄牙', code: 'pt', radius: 47 },
+            { name: '西班牙', code: 'es', radius: 52 },
+            { name: '德国', code: 'de', radius: 58 },
+            { name: '巴西', code: 'br', radius: 64 },
+            { name: '阿根廷', code: 'ar', radius: 72 },
+        ];
+
+        const BORDER_COLORS = [
+            '#6495ED', '#48C9B0', '#2ECC71', '#F1C40F',
+            '#F39C12', '#E74C3C', '#9B59B6', '#3498DB',
+            '#E67E22', '#C0392B', '#8E44AD', '#FFD700'
+        ];
+
+        function getFlagUrl(code) {
+            return `https://flagcdn.com/w80/${code}.png`;
+        }
+
+        const { Engine, Render, Runner, Bodies, Body, Composite, Events, Vector } = Matter;
+
+        let engine, render, runner;
+        let currentLevel = 0;
+        let nextLevel = 0;
+        let score = 0;
+        let best = parseInt(localStorage.getItem('wcmerge_best') || '0');
+        let gameActive = true;
+        let dropReady = true;
+        let dropX = 180;
+        let ballBodies = [];
+        let merging = new Set();
+
+        const CANVAS_W = 360;
+        const CANVAS_H = 520;
+        const WALL_T = 12;
+        const DANGER_Y = 80;
+
+        const flagImages = {};
+
+        function preloadFlags() {
+            TEAMS.forEach(t => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.src = getFlagUrl(t.code);
+                flagImages[t.code] = img;
+            });
+        }
+
+        function renderLevelGuide() {
+            const list = document.getElementById('levelList');
+            list.innerHTML = TEAMS.map((t, i) =>
+                `<div class="level-item"><img src="${getFlagUrl(t.code)}" alt="${t.name}">${t.name}</div>${i < TEAMS.length - 1 ? '<span class="level-arrow">→</span>' : ''}`
+            ).join('') + '<span class="level-arrow">→</span><div class="level-item" style="background:rgba(255,215,0,0.1)">🏆</div>';
+        }
+
+        function initPhysics() {
+            engine = Engine.create({
+                gravity: { x: 0, y: 1.2 }
+            });
+
+            const canvas = document.getElementById('gameCanvas');
+            canvas.width = CANVAS_W;
+            canvas.height = CANVAS_H;
+
+            const walls = [
+                Bodies.rectangle(CANVAS_W / 2, CANVAS_H + WALL_T / 2, CANVAS_W, WALL_T, { isStatic: true, label: 'floor' }),
+                Bodies.rectangle(-WALL_T / 2, CANVAS_H / 2, WALL_T, CANVAS_H, { isStatic: true, label: 'wallL' }),
+                Bodies.rectangle(CANVAS_W + WALL_T / 2, CANVAS_H / 2, WALL_T, CANVAS_H, { isStatic: true, label: 'wallR' }),
+            ];
+
+            Composite.add(engine.world, walls);
+
+            Events.on(engine, 'collisionStart', handleCollision);
+
+            runner = Runner.create();
+            Runner.run(runner, engine);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function handleCollision(event) {
+            for (const pair of event.pairs) {
+                const a = pair.bodyA;
+                const b = pair.bodyB;
+
+                if (a.label === 'ball' && b.label === 'ball') {
+                    if (a.teamLevel === b.teamLevel && !merging.has(a.id) && !merging.has(b.id)) {
+                        merging.add(a.id);
+                        merging.add(b.id);
+                        mergeBalls(a, b);
+                    }
+                }
+            }
+        }
+
+        function mergeBalls(a, b) {
+            const newLevel = a.teamLevel + 1;
+            const midX = (a.position.x + b.position.x) / 2;
+            const midY = (a.position.y + b.position.y) / 2;
+
+            Composite.remove(engine.world, a);
+            Composite.remove(engine.world, b);
+            ballBodies = ballBodies.filter(bb => bb !== a && bb !== b);
+
+            if (newLevel < TEAMS.length) {
+                const team = TEAMS[newLevel];
+                const ball = Bodies.circle(midX, midY, team.radius, {
+                    label: 'ball',
+                    restitution: 0.3,
+                    friction: 0.5,
+                    density: 0.002,
+                    render: { visible: false }
+                });
+                ball.teamLevel = newLevel;
+                ball.mergeAnim = 8;
+                Composite.add(engine.world, ball);
+                ballBodies.push(ball);
+            }
+
+            const points = Math.pow(2, newLevel + 1);
+            score += points;
+            document.getElementById('score').textContent = score;
+
+            if (score > best) {
+                best = score;
+                localStorage.setItem('wcmerge_best', best.toString());
+                document.getElementById('best').textContent = best;
+            }
+
+            setTimeout(() => {
+                merging.delete(a.id);
+                merging.delete(b.id);
+            }, 50);
+        }
+
+        function createBall(x, level) {
+            const team = TEAMS[level];
+            const ball = Bodies.circle(x, 40, team.radius, {
+                label: 'ball',
+                restitution: 0.3,
+                friction: 0.5,
+                density: 0.002,
+            });
+            ball.teamLevel = level;
+            ball.dropTime = Date.now();
+            ball.mergeAnim = 0;
+            Composite.add(engine.world, ball);
+            ballBodies.push(ball);
+        }
+
+        function dropBall() {
+            if (!dropReady || !gameActive) return;
+            dropReady = false;
+
+            createBall(dropX, currentLevel);
+            currentLevel = nextLevel;
+            nextLevel = Math.floor(Math.random() * Math.min(4, 5));
+            updateNextBall();
+
+            setTimeout(() => {
+                dropReady = true;
+            }, 500);
+        }
+
+        function updateNextBall() {
+            const team = TEAMS[currentLevel];
+            document.getElementById('nextFlag').src = getFlagUrl(team.code);
+        }
+
+        function checkGameOver() {
+            if (!gameActive) return;
+            for (const ball of ballBodies) {
+                if (Date.now() - ball.dropTime > 2000 && ball.position.y - TEAMS[ball.teamLevel].radius < DANGER_Y) {
+                    endGame();
+                    return;
+                }
+            }
+        }
+
+        function endGame() {
+            gameActive = false;
+            document.getElementById('endScore').textContent = score;
+
+            let maxLevel = 0;
+            for (const b of ballBodies) {
+                if (b.teamLevel > maxLevel) maxLevel = b.teamLevel;
+            }
+
+            if (maxLevel >= 11) {
+                document.getElementById('endIcon').textContent = '🏆';
+                document.getElementById('endTitle').textContent = 'CHAMPION!';
+            } else {
+                document.getElementById('endIcon').textContent = '⚽';
+                document.getElementById('endTitle').textContent = 'FULL TIME!';
+            }
+
+            document.getElementById('gameOver').classList.add('show');
+        }
+
+        function restartGame() {
+            for (const b of ballBodies) {
+                Composite.remove(engine.world, b);
+            }
+            ballBodies = [];
+            merging.clear();
+            score = 0;
+            gameActive = true;
+            dropReady = true;
+            document.getElementById('score').textContent = '0';
+            document.getElementById('gameOver').classList.remove('show');
+
+            currentLevel = Math.floor(Math.random() * 3);
+            nextLevel = Math.floor(Math.random() * 3);
+            updateNextBall();
+        }
+
+        function gameLoop() {
+            drawGame();
+            if (gameActive) checkGameOver();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function drawGame() {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+            // Background
+            ctx.fillStyle = 'rgba(10, 30, 10, 0.95)';
+            ctx.beginPath();
+            ctx.roundRect(0, 0, CANVAS_W, CANVAS_H, 12);
+            ctx.fill();
+
+            // Field lines
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(CANVAS_W / 2, CANVAS_H / 2, 80, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, CANVAS_H / 2);
+            ctx.lineTo(CANVAS_W, CANVAS_H / 2);
+            ctx.stroke();
+
+            // Walls
+            ctx.fillStyle = 'rgba(255,215,0,0.15)';
+            ctx.fillRect(0, 0, 4, CANVAS_H);
+            ctx.fillRect(CANVAS_W - 4, 0, 4, CANVAS_H);
+            ctx.fillRect(0, CANVAS_H - 4, CANVAS_W, 4);
+
+            // Drop preview
+            if (dropReady && gameActive) {
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(dropX, 60);
+                ctx.lineTo(dropX, CANVAS_H - 10);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Preview ball
+                const previewTeam = TEAMS[currentLevel];
+                ctx.beginPath();
+                ctx.arc(dropX, 40, previewTeam.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = BORDER_COLORS[currentLevel];
+                ctx.globalAlpha = 0.5;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+                ctx.lineWidth = 1;
+            }
+
+            // Balls
+            for (const ball of ballBodies) {
+                const { x, y } = ball.position;
+                const level = ball.teamLevel;
+                const team = TEAMS[level];
+                const r = team.radius;
+
+                let scale = 1;
+                if (ball.mergeAnim > 0) {
+                    scale = 1 + ball.mergeAnim * 0.03;
+                    ball.mergeAnim--;
+                }
+
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.scale(scale, scale);
+
+                // Ball circle with gradient
+                const grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+                grad.addColorStop(0, 'rgba(255,255,255,0.15)');
+                grad.addColorStop(1, 'rgba(0,0,0,0.3)');
+
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(30,30,50,0.9)`;
+                ctx.fill();
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // Border
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.strokeStyle = BORDER_COLORS[level];
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                // Flag image
+                const img = flagImages[team.code];
+                if (img && img.complete && img.naturalWidth > 0) {
+                    const flagW = r * 1.2;
+                    const flagH = flagW * 0.67;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+                    ctx.clip();
+                    ctx.drawImage(img, -flagW / 2, -flagH / 2, flagW, flagH);
+                    ctx.restore();
+                }
+
+                // Team name (below for larger balls)
+                if (r >= 30) {
+                    ctx.fillStyle = '#fff';
+                    ctx.font = `bold ${Math.max(8, r * 0.22)}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(team.name, 0, r + 12);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Input handling
+        function setupInput() {
+            const canvas = document.getElementById('gameCanvas');
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = CANVAS_W / rect.width;
+                dropX = Math.max(30, Math.min(CANVAS_W - 30, (e.clientX - rect.left) * scaleX));
+                document.getElementById('dropIndicator').style.left = `${e.clientX - rect.left}px`;
+            });
+
+            canvas.addEventListener('click', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = CANVAS_W / rect.width;
+                dropX = Math.max(30, Math.min(CANVAS_W - 30, (e.clientX - rect.left) * scaleX));
+                dropBall();
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = CANVAS_W / rect.width;
+                const touch = e.touches[0];
+                dropX = Math.max(30, Math.min(CANVAS_W - 30, (touch.clientX - rect.left) * scaleX));
+            }, { passive: false });
+
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                dropBall();
+            }, { passive: false });
+        }
+
+        // Init
+        document.getElementById('best').textContent = best;
+        preloadFlags();
+        renderLevelGuide();
+        initPhysics();
+        setupInput();
+        currentLevel = Math.floor(Math.random() * 3);
+        nextLevel = Math.floor(Math.random() * 3);
+        updateNextBall();
+    </script>
+</body>
+</html>
