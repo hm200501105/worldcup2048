@@ -677,12 +677,46 @@
             }, { passive: false });
         }
 
+        // Gyroscope - tilt phone to shift gravity
+        function setupGyroscope() {
+            function handleOrientation(e) {
+                if (!gameActive) return;
+                let gamma = e.gamma || 0; // left-right tilt: -90 to 90
+                gamma = Math.max(-45, Math.min(45, gamma));
+                const gx = (gamma / 45) * 0.6;
+                engine.gravity.x = gx;
+            }
+
+            if (typeof DeviceOrientationEvent !== 'undefined' &&
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                // iOS 13+ needs permission
+                const btn = document.createElement('button');
+                btn.textContent = '🔄 启用体感';
+                btn.className = 'btn btn-gold';
+                btn.style.cssText = 'margin-top:8px;font-size:12px;padding:8px 16px;';
+                btn.addEventListener('click', () => {
+                    DeviceOrientationEvent.requestPermission().then(state => {
+                        if (state === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                            btn.textContent = '✓ 体感已开启';
+                            btn.disabled = true;
+                            btn.style.opacity = '0.6';
+                        }
+                    });
+                });
+                document.querySelector('.controls').appendChild(btn);
+            } else if ('DeviceOrientationEvent' in window) {
+                window.addEventListener('deviceorientation', handleOrientation);
+            }
+        }
+
         // Init
         document.getElementById('best').textContent = best;
         preloadFlags();
         renderLevelGuide();
         initPhysics();
         setupInput();
+        setupGyroscope();
         currentLevel = Math.floor(Math.random() * 3);
         nextLevel = Math.floor(Math.random() * 3);
         updateNextBall();
