@@ -461,6 +461,8 @@
             ballBodies.push(ball);
         }
 
+        let dropCount = 0;
+
         function dropBall() {
             if (!dropReady || !gameActive) return;
             dropReady = false;
@@ -469,10 +471,30 @@
             currentLevel = nextLevel;
             nextLevel = Math.floor(Math.random() * Math.min(4, 5));
             updateNextBall();
+            dropCount++;
+
+            // Every 8-15 drops, 40% chance to rain down chaos balls
+            if (dropCount >= 8 && Math.random() < 0.4) {
+                dropCount = 0;
+                setTimeout(() => spawnChaosBalls(), 600);
+            }
 
             setTimeout(() => {
                 dropReady = true;
             }, 500);
+        }
+
+        function spawnChaosBalls() {
+            if (!gameActive) return;
+            const count = 2 + Math.floor(Math.random() * 2); // 2-3 balls
+            for (let i = 0; i < count; i++) {
+                setTimeout(() => {
+                    if (!gameActive) return;
+                    const x = 40 + Math.random() * (CANVAS_W - 80);
+                    const level = Math.floor(Math.random() * 3); // level 0-2 only
+                    createBall(x, level);
+                }, i * 200);
+            }
         }
 
         function updateNextBall() {
@@ -511,6 +533,7 @@
         }
 
         function restartGame() {
+            dropCount = 0;
             for (const b of ballBodies) {
                 Composite.remove(engine.world, b);
             }
